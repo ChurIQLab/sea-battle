@@ -27,9 +27,9 @@ var (
 
 type game struct {
 	cells    [boardSize][boardSize]bool // cells[строка][столбец]
-	hoverCol int
 	hoverRow int
-	hoverOk  bool
+	hoverCol int
+	hoverOK  bool
 }
 
 // логика, по умолчанию 60 раз в секунду
@@ -39,9 +39,9 @@ func (g *game) Update() error {
 	}
 
 	x, y := ebiten.CursorPosition()
-	g.hoverCol, g.hoverRow, g.hoverOk = cellAt(x, y)
+	g.hoverRow, g.hoverCol, g.hoverOK = cellAt(x, y)
 
-	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) && g.hoverOk {
+	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) && g.hoverOK {
 		g.cells[g.hoverRow][g.hoverCol] = !g.cells[g.hoverRow][g.hoverCol]
 	}
 
@@ -60,7 +60,7 @@ func (g *game) Draw(screen *ebiten.Image) {
 
 			clr := cellColor
 
-			if g.hoverOk && row == g.hoverRow && col == g.hoverCol {
+			if g.hoverOK && row == g.hoverRow && col == g.hoverCol {
 				clr = hoverColor
 			}
 
@@ -79,19 +79,20 @@ func (g *game) Layout(outW, outH int) (int, int) {
 	return screenWidth, screenHeight
 }
 
-func cellAt(x, y int) (col, row int, ok bool) {
+// cellAt переводит пиксели экрана в клетку поля. ok = false, если точка вне поля.
+func cellAt(x, y int) (row, col int, ok bool) {
 	if x < boardX || y < boardY {
 		return 0, 0, false
 	}
 
-	col = (x - boardX) / cellSize
 	row = (y - boardY) / cellSize
+	col = (x - boardX) / cellSize
 
-	if col >= boardSize || row >= boardSize {
+	if row >= boardSize || col >= boardSize {
 		return 0, 0, false
 	}
 
-	return col, row, true
+	return row, col, true
 }
 
 func main() {
