@@ -5,85 +5,93 @@ import (
 	"log"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
 const (
 	screenWidth  = 1280
 	screenHeight = 720
-	squareSize   = 100
-	speed        = 4
+	boardSize    = 10
+	boardX       = 120
+	boardY       = 174
+	cellSize     = 44
 )
 
-type Direction int
-
-const (
-	Up   Direction = iota // iota - счетчик: Up = 0
-	Down                  // Down = 1
+var (
+	backgroundColor = color.RGBA{R: 22, G: 131, B: 196, A: 255}
+	cellColor       = color.RGBA{R: 247, G: 232, B: 207, A: 255}
+	markedColor     = color.RGBA{R: 215, G: 38, B: 61, A: 255}
+	hoverColor      = color.RGBA{R: 255, G: 255, B: 0, A: 255}
 )
 
-type Game struct {
-	ticks int
-	red   uint8
-	move  Direction
-	x     float32
-	y     float32
+type game struct {
+	cells    [boardSize][boardSize]bool // cells[строка][столбец]
+	hoverCol int
+	hoverRow int
+	hoverOk  bool
 }
 
 // логика, по умолчанию 60 раз в секунду
-func (g *Game) Update() error {
+func (g *game) Update() error {
 	if ebiten.IsKeyPressed(ebiten.KeyEscape) {
 		return ebiten.Termination
 	}
 
-	if ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
-		g.x = min(g.x+speed, screenWidth-squareSize)
-	}
+	x, y := ebiten.CursorPosition()
+	g.hoverCol, g.hoverRow, g.hoverOk = cellAt(x, y)
 
-	if ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
-		g.x = max(g.x-speed, 0)
-	}
-
-	if ebiten.IsKeyPressed(ebiten.KeyArrowDown) {
-		g.y = min(g.y+speed, screenHeight-squareSize)
-	}
-
-	if ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
-		g.y = max(g.y-speed, 0)
-	}
-
-	switch g.move {
-	case Up:
-		g.red++
-	case Down:
-		g.red--
-	}
-
-	switch g.red {
-	case 255:
-		g.move = Down
-	case 0:
-		g.move = Up
-	}
-
-	g.ticks++
-	if g.ticks >= ebiten.TPS() {
-		g.ticks = 0
-		log.Printf("FPS: %.1f TPS: %.1f", ebiten.ActualFPS(), ebiten.ActualTPS())
+	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) && g.hoverOk {
+		g.cells[g.hoverRow][g.hoverCol] = !g.cells[g.hoverRow][g.hoverCol]
 	}
 
 	return nil
 }
 
 // отрисовка кадра
-func (g *Game) Draw(screen *ebiten.Image) {
-	screen.Fill(color.RGBA{R: g.red, G: 0, B: 0, A: 255})
-	vector.FillRect(screen, g.x, g.y, squareSize, squareSize, color.RGBA{R: 255, G: 212, B: 71, A: 255}, false)
+func (g *game) Draw(screen *ebiten.Image) {
+	screen.Fill(backgroundColor)
+
+	for col := range boardSize {
+		x := float32(boardX + col*cellSize)
+
+		for row := range boardSize {
+			y := float32(boardY + row*cellSize)
+
+			clr := cellColor
+
+			if g.hoverOk && row == g.hoverRow && col == g.hoverCol {
+				clr = hoverColor
+			}
+
+			if g.cells[row][col] {
+				clr = markedColor
+			}
+
+			vector.FillRect(screen, x, y, cellSize-1, cellSize-1, clr, false)
+		}
+
+	}
 }
 
 // логическое разрешение
-func (g *Game) Layout(outW, outH int) (int, int) {
+func (g *game) Layout(outW, outH int) (int, int) {
 	return screenWidth, screenHeight
+}
+
+func cellAt(x, y int) (col, row int, ok bool) {
+	if x < boardX || y < boardY {
+		return 0, 0, false
+	}
+
+	col = (x - boardX) / cellSize
+	row = (y - boardY) / cellSize
+
+	if col >= boardSize || row >= boardSize {
+		return 0, 0, false
+	}
+
+	return col, row, true
 }
 
 func main() {
@@ -91,7 +99,9 @@ func main() {
 	ebiten.SetWindowSize(screenWidth, screenHeight)
 	ebiten.SetWindowTitle("Sea Battle")
 
-	if err := ebiten.RunGame(&Game{}); err != nil {
+	g := game{}
+
+	if err := ebiten.RunGame(&g); err != nil {
 		log.Fatal(err)
 	}
 }
